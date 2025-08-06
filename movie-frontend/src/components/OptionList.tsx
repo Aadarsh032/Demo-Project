@@ -5,23 +5,14 @@ import { setMovies, setGenre, setLoading, setTotalPages, setPage } from '../feat
 
 const OptionList = () => {
     const dispatch = useDispatch();
+    const { movies, queryString, pagination, genre } = useSelector((state: any) => state.movies);
+
     const [genres, setGenres] = useState([{
-        label: "All",
-        value: "ALL"
+        label: genre,
+        value: genre
     }]);
-    const { movies, queryString, pagination } = useSelector((state: any) => state.movies);
-
-    const fetchGenres = async (type, pageNo) => {
+    const fetchGenres = async () => {
         try {
-            dispatch(setPage(1))
-            let query_val = queryString;
-            if (type == 'ALL') {
-                query_val = `http://localhost:3000/movielist/elastic-search/genre?page=${pageNo}&limit=${pagination.limit}`;
-            } else {
-                query_val = `http://localhost:3000/movielist/elastic-search/genre?genre=${type}&page=${pageNo}&limit=${pagination.limit}`;
-            }
-            dispatch(setGenre(type));
-
             //Getting and Setting Genres
             const data = await fetch('http://localhost:3000/movielist/genre');
             const genres = await data.json();
@@ -35,23 +26,37 @@ const OptionList = () => {
                 label: "ALL",
                 value: "ALL"
             })
-             
             setGenres(arr);
+        } catch (error) {
+            console.log(`Error fetching Genre List`);
+        }
+    }
 
+    const fetchGenresMovie = async (type, pageNo) => {
+        try {
+            dispatch(setPage(1))
+            let query_val = queryString;
+            if (type == 'ALL') {
+                query_val = `http://localhost:3000/movielist/elastic-search/genre?page=${pageNo}&limit=${pagination.limit}`;
+            } else {
+                query_val = `http://localhost:3000/movielist/elastic-search/genre?genre=${type}&page=${pageNo}&limit=${pagination.limit}`;
+            }
+            dispatch(setGenre(type));
             //Fetching Movies of the Genre and Setting it 
             dispatch(setLoading(true))
             const moviesList = await fetch(query_val);
             const movieResult = await moviesList.json();
             dispatch(setMovies(movieResult.results));
-            dispatch(setTotalPages(movieResult.total/ pagination.limit));
+            dispatch(setTotalPages(movieResult.total / pagination.limit));
             dispatch(setLoading(false));
         } catch (error) {
-            console.error('Error Fetching Genres', error)
+            console.error(`Error Fetching Movies of ${genre}`, error)
         }
     }
 
     useEffect(() => {
-        fetchGenres('ALL',1);
+        fetchGenres()
+        fetchGenresMovie('ALL', 1);
     }, [])
 
     return (
@@ -63,10 +68,11 @@ const OptionList = () => {
                 css={{
                     width: '100%',
                 }}
-                placeholder='All'
+                placeholder={genre}
                 size="lg"
                 options={genres}
-                onChange={(items) => { fetchGenres(items.value,1) }}
+                value={genres.find((g) => g.value === genre)}
+                onChange={(items) => { fetchGenresMovie(items.value, 1) }}
             />
         </Flex>
     )

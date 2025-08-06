@@ -218,6 +218,7 @@ export class MovieListRepository {
       query: {
         multi_match: {
           query: queryText,
+          fuzzy_transpositions:true,
           type: 'best_fields',
           fields: [
             'title',

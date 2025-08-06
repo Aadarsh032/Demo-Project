@@ -3,12 +3,10 @@ import { SearchIcon } from '@sparrowengg/twigs-react-icons'
 import { Box, Input, Flex, Button } from '@sparrowengg/twigs-react'
 import { useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { setLoading, setMovies, setGenre, setTotalPages} from '../feature/movies/moviesSlice';
+import { setLoading, setMovies, setGenre, setTotalPages, setPage } from '../feature/movies/moviesSlice';
 const Navbar = () => {
     const dispatch = useDispatch();
-    const { queryString, pagination } = useSelector((state) => state.movies);
-
-
+    const {  pagination } = useSelector((state) => state.movies);
     const [searchWord, setSearchWord] = useState('');
 
 
@@ -19,14 +17,16 @@ const Navbar = () => {
         const data = await fetch(`http://localhost:3000/movielist/elastic-search/search?query=${searchFor}&page=${pagination.page}&limit=${pagination.limit}`);
         const result = await data.json();
         dispatch(setMovies(result.results));
+        dispatch(setPage(pagination.page));
         dispatch(setGenre('ALL'))
-        dispatch(setTotalPages(Math.ceil(result.total/pagination.limit)))
+        dispatch(setTotalPages(Math.ceil(result.total / pagination.limit)))
         console.log("Result", result);
         dispatch(setLoading(false))
     }
 
     async function searchInputReader(input) {
         setSearchWord(input);
+        dispatch(setPage(1));
         console.log("Input", input);
     }
 

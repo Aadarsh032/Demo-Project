@@ -409,6 +409,8 @@ export class MovielistService {
 
 
   // Migrating Postgres Data to Elastic
+
+  
   // async buildMovieDocument(movieId: number) {
   //   const movie = await this.movieRepo.findByPk(movieId, {
   //     include: [

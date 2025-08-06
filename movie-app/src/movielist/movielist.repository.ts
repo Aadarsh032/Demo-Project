@@ -136,12 +136,12 @@ export class MovieListRepository {
       include: [
         {
           model: Genres,
-          required: true, // don't filter out movies without genre
+          required: true,
           where: genre ? { genre: genre } : undefined,
         },
         {
           model: Persons,
-          required: true, // don't filter out movies without persons
+          required: true,
           where: person ? { name: person } : undefined,
         },
       ],
@@ -167,10 +167,28 @@ export class MovieListRepository {
       where: { id: results[0]?.id },
       include: [Genres, Persons],
     });
-    const arr: any[] =[];
+    const arr: any[] = [];
     arr.push(movie)
 
     return arr;
   }
+
+  async findAllInclude2() {
+    const [result, metadata ] : any[] = await this.sequelize.query(`
+      SELECT * 
+      FROM movies_flat_view
+      WHERE genres = 'ROMANCE' LIMIT  100 ;
+      `);
+
+      console.log("Result", result);
+      console.log("Meta data", metadata.rowCount)
+      return metadata;
+  }
+  
+
+  async findAlByGenre(){
+    
+  }
+
 
 }

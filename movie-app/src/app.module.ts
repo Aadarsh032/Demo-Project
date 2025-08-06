@@ -7,6 +7,7 @@ import { MovielistModule } from './movielist/movielist.module';
 import { UserModule } from './user/user.module';
 import { DatabaseModule } from './database/database.module';
 import { CacheModule } from '@nestjs/cache-manager';
+import { ElasticModule } from './elastic/elastic.module';
 import redisStore from 'cache-manager-ioredis';
 
 
@@ -24,7 +25,9 @@ import redisStore from 'cache-manager-ioredis';
     ConfigModule.forRoot({ isGlobal: true }),
     MovielistModule,
     UserModule,
-    DatabaseModule],
+    DatabaseModule,
+    ElasticModule,
+    ],
   controllers: [AppController],
   providers: [AppService],
 })

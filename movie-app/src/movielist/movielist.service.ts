@@ -29,6 +29,7 @@ import { FindOneMovieDto } from './dto/find-one-movie.dto';
 import { Cache } from 'cache-manager';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { FindAllMovieDto } from './dto/find-all-movie.dto';
+import { ElasticsearchService } from '@nestjs/elasticsearch';
 
 @Injectable()
 export class MovielistService {
@@ -39,9 +40,15 @@ export class MovielistService {
 
     @Inject(CACHE_MANAGER) private cacheManager: Cache,
 
+    @Inject('MOVIE-REPO')
+    private readonly movieRepo: typeof Movies,
+
     private readonly movielistRepository: MovieListRepository,
     private readonly genreRepository: GenreRepository,
     private readonly personRepository: PersonRepository,
+
+    private readonly elasticSearchService: ElasticsearchService
+
   ) { }
 
   //Movies Services
@@ -187,7 +194,7 @@ export class MovielistService {
     }
   }
 
-  
+
   // Range Based KeySet Pagination Movies List
   async getAllMovie(page: number, limit: number) {
     try {
@@ -264,7 +271,7 @@ export class MovielistService {
 
     var redisCacheKey = '';
     if (dto.genre) {
-      redisCacheKey = redisCacheKey +  `genre=${dto.genre}`;
+      redisCacheKey = redisCacheKey + `genre=${dto.genre}`;
     }
     if (dto.person) {
       redisCacheKey = redisCacheKey + `person=${dto.person}`;
@@ -302,10 +309,10 @@ export class MovielistService {
   }
 
 
-  async findMoviesWithTextSearch(query: string){
-     console.log("Query", query);
-     const res = await this.movielistRepository.findAllWithTextSearch(query);
-     return res;
+  async findMoviesWithTextSearch(query: string) {
+    console.log("Query", query);
+    const res = await this.movielistRepository.findAllWithTextSearch(query);
+    return res;
   }
 
 
@@ -367,5 +374,132 @@ export class MovielistService {
   //         throw error;
   //     }
   // }
+
+
+  async findAllInclude2() {
+    return await this.movielistRepository.findAllInclude2();
+  }
+
+
+  // Service for Nest Js Elastic Search
+  async getMoviesByGenre(genre: string, page: number, limit: number) {
+    const from = (page - 1) * limit;
+    const { hits } = await this.elasticSearchService.search({
+      index: 'movies',
+      track_total_hits: true,
+      from:from,
+      size:limit,
+      query: {
+        match: {
+          genres: genre
+        },
+      },
+      sort: [{
+        _score: {
+          order: 'asc'
+        }
+      }]
+
+    });
+    console.log("Hits", hits)
+    return hits;
+  }
+
+
+
+
+
+
+
+
+  // Migrating Postgres Data to Elastic
+  async buildMovieDocument(movieId: number) {
+    const movie = await this.movieRepo.findByPk(movieId, {
+      include: [
+        {
+          model: Genres,
+          through: { attributes: [] }
+        },
+        {
+          model: Persons,
+          through: { attributes: ['cast'] }
+        }
+      ],
+    })
+
+    const movieDoc = {
+      id: movie?.id,
+      title: movie?.title,
+      description: movie?.description,
+      genres: movie?.genres?.map((g) => {
+        return g.dataValues.genre
+      }),
+      persons: movie?.persons.map((p) => {
+        const persona = (p as any).Personas;
+        return {
+          name: p.name,
+          cast: persona.cast
+        }
+      })
+    }
+    return movieDoc;
+  }
+
+  async migrateAllMoviesToElastic() {
+    let offset = 0;
+    let hasMore = true;
+    let BATCH_SIZE = 2000;
+
+    while (hasMore) {
+      const movies = await this.movieRepo.findAll({
+        offset,
+        limit: BATCH_SIZE,
+        order: [['id', 'ASC']],
+        include: [{
+          model: Genres,
+          through: { attributes: [] },
+        },
+        {
+          model: Persons,
+          through: {
+            attributes: ['cast']
+          }
+        }],
+      });
+
+      const bulkMovie: any = [];
+
+      for (const movie of movies) {
+        const movieDoc = {
+          id: movie.id,
+          title: movie.title,
+          description: movie.description,
+          genres: movie.genres.map((g) => g.dataValues.genre),
+          persons: movie.persons.map((p) => ({
+            name: p.name,
+            cast: (p as any).Personas.cast,
+          })),
+        };
+
+        bulkMovie.push({ index: { _index: 'movies', _id: movieDoc.id } });
+        bulkMovie.push(movieDoc);
+      }
+
+      if (bulkMovie.length > 0) {
+        await this.bulkIndex(bulkMovie);
+        console.log(`✅ Indexed batch starting from offset ${offset}`);
+      }
+
+
+      offset += BATCH_SIZE;
+      hasMore = movies.length === BATCH_SIZE;
+    }
+    console.log('🎉 All movies migrated to Elasticsearch!');
+  }
+
+  async bulkIndex(body: any[]) {
+    await this.elasticSearchService.bulk({ body, refresh: true });
+  }
+
 
 }

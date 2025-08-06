@@ -16,12 +16,14 @@ import { MovieListRepository } from './movielist.repository';
 import { DatabaseModule } from 'src/database/database.module';
 import { movieProviders, moviesGenreProvider, personaProvider } from './constants/movie.providers';
 import { CACHE_MODULE_OPTIONS, CacheModule } from '@nestjs/cache-manager';
+import { ElasticModule } from 'src/elastic/elastic.module';
 
 @Module({
     imports: [
         DatabaseModule,
         GenreModule,
         PersonModule,
+        ElasticModule
     ],
     controllers: [MovielistController],
     providers: [...movieProviders, ...personaProvider, ...moviesGenreProvider, MovielistService, MovieListRepository],

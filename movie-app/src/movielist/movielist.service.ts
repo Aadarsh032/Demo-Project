@@ -49,6 +49,8 @@ export class MovielistService {
 
     private readonly elasticSearchService: ElasticsearchService
 
+
+
   ) { }
 
   //Movies Services
@@ -384,24 +386,21 @@ export class MovielistService {
   // Service for Nest Js Elastic Search
   async getMoviesByGenre(genre: string, page: number, limit: number) {
     const from = (page - 1) * limit;
-    const { hits } = await this.elasticSearchService.search({
-      index: 'movies',
-      track_total_hits: true,
-      from:from,
-      size:limit,
-      query: {
-        match: {
-          genres: genre
-        },
-      },
-      sort: [{
-        _score: {
-          order: 'asc'
-        }
-      }]
+    const query = genre
+      ? { match: { genres: genre } }
+      : { match_all: {} };
 
-    });
-    console.log("Hits", hits)
+    const hits: any = await this.movielistRepository.findAllByGenre(query, from, limit)
+    return {
+      total: hits.total.value,
+      results: hits.hits.map(hit => hit._source),
+    };
+  }
+
+  //Search By Query
+  async searchMoviesByQuery(queryText: string, page: number, limit: number) {
+    const from = (page - 1) * limit;
+    const hits = await this.movielistRepository.findAllByQuery(queryText, from, limit);
     return hits;
   }
 
@@ -409,97 +408,94 @@ export class MovielistService {
 
 
 
-
-
-
   // Migrating Postgres Data to Elastic
-  async buildMovieDocument(movieId: number) {
-    const movie = await this.movieRepo.findByPk(movieId, {
-      include: [
-        {
-          model: Genres,
-          through: { attributes: [] }
-        },
-        {
-          model: Persons,
-          through: { attributes: ['cast'] }
-        }
-      ],
-    })
+  // async buildMovieDocument(movieId: number) {
+  //   const movie = await this.movieRepo.findByPk(movieId, {
+  //     include: [
+  //       {
+  //         model: Genres,
+  //         through: { attributes: [] }
+  //       },
+  //       {
+  //         model: Persons,
+  //         through: { attributes: ['cast'] }
+  //       }
+  //     ],
+  //   })
 
-    const movieDoc = {
-      id: movie?.id,
-      title: movie?.title,
-      description: movie?.description,
-      genres: movie?.genres?.map((g) => {
-        return g.dataValues.genre
-      }),
-      persons: movie?.persons.map((p) => {
-        const persona = (p as any).Personas;
-        return {
-          name: p.name,
-          cast: persona.cast
-        }
-      })
-    }
-    return movieDoc;
-  }
+  //   const movieDoc = {
+  //     id: movie?.id,
+  //     title: movie?.title,
+  //     description: movie?.description,
+  //     genres: movie?.genres?.map((g) => {
+  //       return g.dataValues.genre
+  //     }),
+  //     persons: movie?.persons.map((p) => {
+  //       const persona = (p as any).Personas;
+  //       return {
+  //         name: p.name,
+  //         cast: persona.cast
+  //       }
+  //     })
+  //   }
+  //   return movieDoc;
+  // }
 
-  async migrateAllMoviesToElastic() {
-    let offset = 0;
-    let hasMore = true;
-    let BATCH_SIZE = 2000;
+  // async migrateAllMoviesToElastic() {
+  //   let offset = 0;
+  //   let hasMore = true;
+  //   let BATCH_SIZE = 2000;
 
-    while (hasMore) {
-      const movies = await this.movieRepo.findAll({
-        offset,
-        limit: BATCH_SIZE,
-        order: [['id', 'ASC']],
-        include: [{
-          model: Genres,
-          through: { attributes: [] },
-        },
-        {
-          model: Persons,
-          through: {
-            attributes: ['cast']
-          }
-        }],
-      });
+  //   while (hasMore) {
+  //     const movies = await this.movieRepo.findAll({
+  //       offset,
+  //       limit: BATCH_SIZE,
+  //       order: [['id', 'ASC']],
+  //       include: [{
+  //         model: Genres,
+  //         through: { attributes: [] },
+  //       },
+  //       {
+  //         model: Persons,
+  //         through: {
+  //           attributes: ['cast']
+  //         }
+  //       }],
+  //     });
 
-      const bulkMovie: any = [];
+  //     const bulkMovie: any = [];
 
-      for (const movie of movies) {
-        const movieDoc = {
-          id: movie.id,
-          title: movie.title,
-          description: movie.description,
-          genres: movie.genres.map((g) => g.dataValues.genre),
-          persons: movie.persons.map((p) => ({
-            name: p.name,
-            cast: (p as any).Personas.cast,
-          })),
-        };
+  //     for (const movie of movies) {
+  //       const movieDoc = {
+  //         id: movie.id,
+  //         title: movie.title,
+  //         description: movie.description,
+  //         genres: movie.genres.map((g) => g.dataValues.genre),
+  //         persons: movie.persons.map((p) => ({
+  //           name: p.name,
+  //           cast: (p as any).Personas.cast,
+  //         })),
+  //       };
 
-        bulkMovie.push({ index: { _index: 'movies', _id: movieDoc.id } });
-        bulkMovie.push(movieDoc);
-      }
+  //       bulkMovie.push({ index: { _index: 'movies', _id: movieDoc.id } });
+  //       bulkMovie.push(movieDoc);
+  //     }
 
-      if (bulkMovie.length > 0) {
-        await this.bulkIndex(bulkMovie);
-        console.log(`✅ Indexed batch starting from offset ${offset}`);
-      }
+  //     if (bulkMovie.length > 0) {
+  //       await this.bulkIndex(bulkMovie);
+  //       console.log(`✅ Indexed batch starting from offset ${offset}`);
+  //     }
 
 
-      offset += BATCH_SIZE;
-      hasMore = movies.length === BATCH_SIZE;
-    }
-    console.log('🎉 All movies migrated to Elasticsearch!');
-  }
+  //     offset += BATCH_SIZE;
+  //     hasMore = movies.length === BATCH_SIZE;
+  //   }
+  //   console.log('🎉 All movies migrated to Elasticsearch!');
+  // }
 
-  async bulkIndex(body: any[]) {
-    await this.elasticSearchService.bulk({ body, refresh: true });
-  }
+  // async bulkIndex(body: any[]) {
+  //   await this.elasticSearchService.bulk({ body, refresh: true });
+  // }
 
 
 }

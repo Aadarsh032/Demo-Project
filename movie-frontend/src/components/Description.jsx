@@ -28,7 +28,7 @@ const Description = (props) => {
                 }}> {
                         props?.genres?.map((item, id) => {
                             return (
-                                <Text key={id}>{item.genre}</Text>
+                                <Text key={id}>{item}</Text>
                             )
                         })
                     } </Box>
@@ -47,7 +47,7 @@ const Description = (props) => {
                     {
                         props?.cast?.map((item, id) => {
                             return (
-                                <Text key={id}>{item.name}</Text>
+                                <Text key={id}>{`${item.cast} : ${item.name}`}</Text>
                             )
                         })
                     }

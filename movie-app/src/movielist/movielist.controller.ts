@@ -141,21 +141,26 @@ export class MovielistController {
     }
 
     @Get('elastic-search/genre')
-    async searchMovie(@Query('genre') genre: string, @Query('page')page: number, @Query('limit')limit: number) {
+    async searchAlMoviesByGenrePaginated(@Query('genre') genre: string, @Query('page') page: number, @Query('limit') limit: number) {
         return await this.movieListService.getMoviesByGenre(genre, Number(page), Number(limit));
     }
 
-    @Get('movie-id/:id')
-    async buildMovieDoc(@Param('id') id: number) {
-        return await this.movieListService.buildMovieDocument(id);
+    @Get('elastic-search/search')
+    async searchMoviesByQueryPaginated(@Query('query') query : string, @Query('page') page: number, @Query('limit') limit: number) {
+      return await this.movieListService.searchMoviesByQuery(query,page,limit );
     }
 
-    @Post('migrate-to-elastic')
-    async migrateToELastic() {
-        await this.movieListService.migrateAllMoviesToElastic();
-        return { message: 'Migration started!' };
+    // @Get('movie-id/:id')
+    // async buildMovieDoc(@Param('id') id: number) {
+    //     return await this.movieListService.buildMovieDocument(id);
+    // }
 
-    }
+    // @Post('migrate-to-elastic')
+    // async migrateToELastic() {
+    //     await this.movieListService.migrateAllMoviesToElastic();
+    //     return { message: 'Migration started!' };
+
+    // }
 
 
 }

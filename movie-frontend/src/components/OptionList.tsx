@@ -9,16 +9,16 @@ const OptionList = () => {
         label: "All",
         value: "ALL"
     }]);
-    const {  queryString, pagination } = useSelector((state: any) => state.movies);
+    const { movies, queryString, pagination } = useSelector((state: any) => state.movies);
 
     const fetchGenres = async (type, pageNo) => {
         try {
             dispatch(setPage(1))
             let query_val = queryString;
             if (type == 'ALL') {
-                query_val = `http://localhost:3000/movielist/get-all?page=${pageNo}&limit=${pagination.limit}`;
+                query_val = `http://localhost:3000/movielist/elastic-search/genre?page=${pageNo}&limit=${pagination.limit}`;
             } else {
-                query_val = `http://localhost:3000/movielist/get-all?genre=${type}&page=${pageNo}&limit=${pagination.limit}`;
+                query_val = `http://localhost:3000/movielist/elastic-search/genre?genre=${type}&page=${pageNo}&limit=${pagination.limit}`;
             }
             dispatch(setGenre(type));
 
@@ -35,17 +35,16 @@ const OptionList = () => {
                 label: "ALL",
                 value: "ALL"
             })
+             
             setGenres(arr);
 
             //Fetching Movies of the Genre and Setting it 
             dispatch(setLoading(true))
             const moviesList = await fetch(query_val);
             const movieResult = await moviesList.json();
-            console.log("Movie List", movieResult)
-            dispatch(setMovies(movieResult.rows));
-            dispatch(setTotalPages(movieResult.count / pagination.limit));
+            dispatch(setMovies(movieResult.results));
+            dispatch(setTotalPages(movieResult.total/ pagination.limit));
             dispatch(setLoading(false));
-
         } catch (error) {
             console.error('Error Fetching Genres', error)
         }

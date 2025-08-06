@@ -13,12 +13,13 @@ const MovieList = () => {
     const pageLimit = 10;
 
     const fetchMovies = async (page) => {
+
         try {
             dispatch(setLoading(true))
-            const moviesData = await fetch(`http://localhost:3000/movielist/get-all?${genre =='ALL' ? '' : `genre=${genre}&`}page=${page}&limit=${pagination.limit}`)
+            const moviesData = await fetch(`http://localhost:3000/movielist/elastic-search/genre?${genre == 'ALL' ? '' : `genre=${genre}&`}page=${page}&limit=${pagination.limit}`)
             const moviesRes = await moviesData.json();
-            dispatch(setMovies(moviesRes.rows));
-            dispatch(setTotalPages(moviesRes.count/pagination.limit))
+            dispatch(setMovies(moviesRes.results));
+            dispatch(setTotalPages(moviesRes.total / pagination.limit))
             dispatch(setPage(activePage));
             return moviesRes.movies;
         } catch (error) {
@@ -33,8 +34,8 @@ const MovieList = () => {
         await fetchMovies(page);
     }
 
-  
-    return (    
+
+    return (
         <Flex flexDirection='column'>
             <div className=' grid grid-cols-10 h-full'>
                 <div className='col-span-8  flex flex-wrap gap-6 justify-center '>

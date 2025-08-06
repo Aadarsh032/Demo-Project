@@ -9,6 +9,7 @@ import { Personas } from './entity/persona.entity';
 import { CreateMoviePayload } from './constants/movie-payload.interface';
 import { MoviesGenres } from './entity/movie-genre-join.entity';
 import { MovieGenresType } from './constants/movielist.enums';
+import { ElasticsearchService } from '@nestjs/elasticsearch';
 
 export class MovieListRepository {
   constructor(
@@ -23,6 +24,9 @@ export class MovieListRepository {
 
     @Inject('SEQUELIZE')
     private readonly sequelize: Sequelize,
+
+    private readonly elasticSearchService: ElasticsearchService
+
   ) { }
 
   //Movies Repository
@@ -174,20 +178,71 @@ export class MovieListRepository {
   }
 
   async findAllInclude2() {
-    const [result, metadata ] : any[] = await this.sequelize.query(`
+    const [result, metadata]: any[] = await this.sequelize.query(`
       SELECT * 
       FROM movies_flat_view
       WHERE genres = 'ROMANCE' LIMIT  100 ;
       `);
 
-      console.log("Result", result);
-      console.log("Meta data", metadata.rowCount)
-      return metadata;
+    console.log("Result", result);
+    console.log("Meta data", metadata.rowCount)
+    return metadata;
   }
-  
 
-  async findAlByGenre(){
-    
+
+  //Elastic Search 
+
+  async findAllByGenre(query: any, from: number, limit: number) {
+    const { hits }: any = await this.elasticSearchService.search({
+      index: 'movies',
+      track_total_hits: true,
+      from: from,
+      size: limit,
+      query: query,
+      sort: [{
+        id: {
+          order: 'asc'
+        }
+      }]
+    });
+    return hits;
+  }
+
+  //Find By Query
+  async findAllByQuery(queryText: string, from: number, limit: number) {
+    const { hits }: any = await this.elasticSearchService.search({
+      index: 'movies',
+      track_total_hits: true,
+      size: limit,
+      from,
+      query: {
+        multi_match: {
+          query: queryText,
+          type: 'best_fields',
+          fields: [
+            'title',
+            'description',
+            'genres',
+            'persons.name',
+            'persons.cast'
+          ],
+          fuzziness: 'AUTO'
+        }
+      },
+      sort: [
+        {
+          id: {
+            order: 'asc'
+          }
+        }
+      ]
+    });
+
+    return {
+      total: hits.total.value,
+      results: hits.hits.map(hit => hit._source),
+    }
+
   }
 
 

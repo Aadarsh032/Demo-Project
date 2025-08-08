@@ -30,6 +30,7 @@ import { Cache } from 'cache-manager';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { FindAllMovieDto } from './dto/find-all-movie.dto';
 import { ElasticsearchService } from '@nestjs/elasticsearch';
+import { MovieIndexQueue } from 'src/queue/movie-index.queue';
 
 @Injectable()
 export class MovielistService {
@@ -47,7 +48,9 @@ export class MovielistService {
     private readonly genreRepository: GenreRepository,
     private readonly personRepository: PersonRepository,
 
-    private readonly elasticSearchService: ElasticsearchService
+    private readonly elasticSearchService: ElasticsearchService,
+
+    private readonly movieIndexQueue: MovieIndexQueue
 
 
 
@@ -55,11 +58,12 @@ export class MovielistService {
 
   //Movies Services
   //Create One Movie
-  async createOneMovie(createMoviesDto: CreateMovieDto): Promise<Movies> {
+  async createOneMovie(createMoviesDto: CreateMovieDto) {
     try {
-      return await this.sequelize.transaction(async (manager: Transaction) => {
+      const newMovie = await this.sequelize.transaction(async (manager: Transaction) => {
         const { title, description, releaseDate, genres, persons } =
           createMoviesDto;
+          
         // Check if Movie title is unique or not
         const whereParameters: WhereOptions = {
           title: title.toLowerCase(),
@@ -115,6 +119,10 @@ export class MovielistService {
         );
         return newMovie;
       });
+
+      await this.movieIndexQueue.addJob(newMovie.id);
+      return newMovie;
+      
     } catch (error) {
       if (
         error instanceof ConflictException ||
@@ -410,7 +418,7 @@ export class MovielistService {
 
   // Migrating Postgres Data to Elastic
 
-  
+
   // async buildMovieDocument(movieId: number) {
   //   const movie = await this.movieRepo.findByPk(movieId, {
   //     include: [

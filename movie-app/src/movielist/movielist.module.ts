@@ -17,15 +17,21 @@ import { DatabaseModule } from 'src/database/database.module';
 import { movieProviders, moviesGenreProvider, personaProvider } from './constants/movie.providers';
 import { CACHE_MODULE_OPTIONS, CacheModule } from '@nestjs/cache-manager';
 import { ElasticModule } from 'src/elastic/elastic.module';
+import { MovieIndexQueue } from 'src/queue/movie-index.queue';
+import { QueueModule } from 'src/queue/queue.module';
 
 @Module({
     imports: [
         DatabaseModule,
         GenreModule,
         PersonModule,
-        ElasticModule
+        ElasticModule,
+        QueueModule
     ],
     controllers: [MovielistController],
     providers: [...movieProviders, ...personaProvider, ...moviesGenreProvider, MovielistService, MovieListRepository],
+    exports:['MOVIE-REPO',
+    'PERSONA-REPO',
+    'MOVIEGENRE-REPO',MovieListRepository]
 })
 export class MovielistModule { }

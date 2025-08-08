@@ -9,12 +9,20 @@ import { DatabaseModule } from './database/database.module';
 import { CacheModule } from '@nestjs/cache-manager';
 import { ElasticModule } from './elastic/elastic.module';
 import redisStore from 'cache-manager-ioredis';
+import { BullModule } from '@nestjs/bullmq';
+import { MovieListRepository } from './movielist/movielist.repository';
+import { queueConfig } from './queue/queue.config';
+import { QueueModule } from './queue/queue.module';
 
 
 @Module({
   imports: [
+    BullModule.forRoot(queueConfig),
+    BullModule.registerQueue({
+      name: 'movie-index',
+    }),
     CacheModule.registerAsync({
-      isGlobal:true,
+      isGlobal: true,
       useFactory: async () => ({
         store: redisStore as any,
         host: 'localhost',
@@ -27,8 +35,10 @@ import redisStore from 'cache-manager-ioredis';
     UserModule,
     DatabaseModule,
     ElasticModule,
-    ],
+    QueueModule
+  ],
   controllers: [AppController],
   providers: [AppService],
+  exports: []
 })
 export class AppModule { }

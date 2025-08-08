@@ -218,7 +218,7 @@ export class MovieListRepository {
       query: {
         multi_match: {
           query: queryText,
-          fuzzy_transpositions:true,
+          fuzzy_transpositions: true,
           type: 'best_fields',
           fields: [
             'title',
@@ -245,6 +245,24 @@ export class MovieListRepository {
     }
 
   }
+
+  async findOneWithAssociations(id: number) {
+    const res = await this.movieRepo.findOne({
+      where: { id },
+      include: [
+        { model: Genres },
+        {
+          model: Persons,
+          through: { attributes: ['cast'] }, // ensure Personas.cast is included
+        },
+      ],
+    });
+    console.log("Res", res);
+    return res;
+  }
+
+
+
 
 
 }

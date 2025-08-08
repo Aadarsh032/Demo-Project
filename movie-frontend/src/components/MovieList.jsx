@@ -13,7 +13,6 @@ const MovieList = () => {
     const pageLimit = 10;
 
     const fetchMovies = async (page) => {
-
         try {
             dispatch(setLoading(true))
             const moviesData = await fetch(`http://localhost:3000/movielist/elastic-search/genre?${genre == 'ALL' ? '' : `genre=${genre}&`}page=${page}&limit=${pagination.limit}`)

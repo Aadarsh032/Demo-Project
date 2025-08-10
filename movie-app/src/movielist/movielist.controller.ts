@@ -1,7 +1,7 @@
 /* eslint-disable prettier/prettier */
 import { BadRequestException, Body, Controller, Delete, Get, HttpException, HttpStatus, InternalServerErrorException, Param, Patch, Post, Query } from '@nestjs/common';
 import { MovielistService } from './movielist.service';
-import { CreateMovieDto } from './dto/create-movie.dto';
+import { CreateMovieDto, UpdateOneMovieDto } from './dto/create-movie.dto';
 import { Movies } from './entity/movie.entity';
 import { FindOneMovieDto } from './dto/find-one-movie.dto';
 import { FindAllMovieDto } from './dto/find-all-movie.dto';
@@ -96,14 +96,13 @@ export class MovielistController {
     }
 
     //Update One Movie
-    @Patch()
-    async updateOneMovie() {
+    @Patch(':id')
+    async updateOneMovie(@Param('id') id: string, @Body() updateMovieDto: UpdateOneMovieDto) {
         try {
-            return this.movieListService.updateOneMovie();
+            return await this.movieListService.updateOneMovie(Number(id),updateMovieDto);
         } catch (error) {
             throw new HttpException('Error Occured', HttpStatus.INTERNAL_SERVER_ERROR)
         }
-
     }
 
     //Delete One Movie
@@ -146,8 +145,8 @@ export class MovielistController {
     }
 
     @Get('elastic-search/search')
-    async searchMoviesByQueryPaginated(@Query('query') query : string, @Query('page') page: number, @Query('limit') limit: number) {
-      return await this.movieListService.searchMoviesByQuery(query,page,limit );
+    async searchMoviesByQueryPaginated(@Query('query') query: string, @Query('page') page: number, @Query('limit') limit: number) {
+        return await this.movieListService.searchMoviesByQuery(query, page, limit);
     }
 
     // @Get('movie-id/:id')

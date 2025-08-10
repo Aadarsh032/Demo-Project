@@ -6,7 +6,7 @@ import { title } from 'process';
 import { Persons } from './person/entity/person.entity';
 import { Genres } from './genre/entity/genre.entity';
 import { Personas } from './entity/persona.entity';
-import { CreateMoviePayload } from './constants/movie-payload.interface';
+import { CreateMoviePayload, UpdateMoviePayload } from './constants/movie-payload.interface';
 import { MoviesGenres } from './entity/movie-genre-join.entity';
 import { MovieGenresType } from './constants/movielist.enums';
 import { ElasticsearchService } from '@nestjs/elasticsearch';
@@ -36,8 +36,7 @@ export class MovieListRepository {
     return await this.movieRepo.findOne({ where: whereParameters });
   }
 
-  //FInd One with Includes
-
+  //Find One with Includes
   async findOneWithInclude(
     whereParameters: WhereOptions,
     include: any[] = [],
@@ -46,6 +45,13 @@ export class MovieListRepository {
       where: whereParameters,
       include: include,
     });
+    return result;
+  }
+
+  //Find One with Includes Bu PK
+
+  async findOneByPkIncludedAssociation(id: number) {
+    const result = await this.movieRepo.findByPk(id, { include: [Genres, Persons] });
     return result;
   }
 
@@ -111,7 +117,67 @@ export class MovieListRepository {
   }
 
   //Update One Movie
-  async updateOne() { }
+  async updateOne(
+    movie: Movies,
+    payload: UpdateMoviePayload,
+    manager?: Transaction,
+  ): Promise<Movies> {
+    // 1. Update the movie's core fields
+    await movie.update(
+      {
+        title: payload.title,
+        description: payload.description,
+        release_date: payload.release_date,
+      },
+      { transaction: manager },
+    );
+
+    // 2. Remove ALL existing genres and persons
+    await movie.$set('genres', [], { transaction: manager });
+
+    await this.movieGenreRepo.destroy({
+      where: { movieId: movie.id },
+      transaction: manager,
+       force: true,
+    });
+
+    await this.personaRepo.destroy({
+      where: { movieId: movie.id },
+      transaction: manager,
+       force: true,
+    });
+
+    // 3. Add the new genres (replace entirely)
+    if (payload.genres?.length) {
+      // Deduplicate genres by ID
+      const uniqueGenresMap = new Map<number, Genres>();
+      for (const genre of payload.genres) {
+        uniqueGenresMap.set(genre.id, genre);
+      }
+      const uniqueGenres = Array.from(uniqueGenresMap.values());
+
+      await movie.$set('genres', uniqueGenres, { transaction: manager });
+    }
+
+
+    // 4. Add the new persons (replace entirely)
+    if (payload.persons?.length) {
+      for (const person of payload.persons) {
+        await this.personaRepo.create(
+          {
+            personId: person.id,
+            movieId: movie.id,
+            cast: person.cast,
+          },
+          { transaction: manager },
+        );
+      }
+    }
+
+    // 5. Save and return the updated movie instance
+    const updatedMovie = await movie.save({ transaction: manager });
+    return updatedMovie;
+  }
 
   //Delete One Movie
   async deleteOne(id: number, manager?: Transaction) {
@@ -257,7 +323,6 @@ export class MovieListRepository {
         },
       ],
     });
-    console.log("Res", res);
     return res;
   }
 

@@ -4,6 +4,7 @@ import { MoviePersonDto } from "./movie-person.dto";
 import { MovieGenresType } from "../constants/movielist.enums";
 import { FindOrCreateGenreDto } from "../genre/dto/find-one-genre.dto";
 import { FindOrCreatePersonDto } from "../person/dto/find-one-person";
+import { PartialType } from "@nestjs/mapped-types";
 
 export class CreateMovieDto {
     @IsString()
@@ -26,6 +27,8 @@ export class CreateMovieDto {
     @Type(() => FindOrCreatePersonDto)
     persons: FindOrCreatePersonDto[];
 }
+
+export class UpdateOneMovieDto extends PartialType(CreateMovieDto){}
 
 
 

@@ -7,7 +7,7 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
-import { CreateMovieDto } from './dto/create-movie.dto';
+import { CreateMovieDto, UpdateOneMovieDto } from './dto/create-movie.dto';
 import { CreateGenreDto, UpdateGenreDto } from './genre/dto/create-genre.dto';
 import { InjectModel } from '@nestjs/sequelize';
 import { Sequelize, Transaction } from 'sequelize';
@@ -23,7 +23,7 @@ import { PersonRepository } from './person/person.repository';
 import { Genres } from './genre/entity/genre.entity';
 import { Persons } from './person/entity/person.entity';
 import { MoviePersonDto } from './dto/movie-person.dto';
-import { CreateMoviePayload } from './constants/movie-payload.interface';
+import { CreateMoviePayload, UpdateMoviePayload } from './constants/movie-payload.interface';
 import { FindOrCreatePersonDto } from './person/dto/find-one-person';
 import { FindOneMovieDto } from './dto/find-one-movie.dto';
 import { Cache } from 'cache-manager';
@@ -43,17 +43,11 @@ export class MovielistService {
 
     @Inject('MOVIE-REPO')
     private readonly movieRepo: typeof Movies,
-
     private readonly movielistRepository: MovieListRepository,
     private readonly genreRepository: GenreRepository,
     private readonly personRepository: PersonRepository,
-
     private readonly elasticSearchService: ElasticsearchService,
-
     private readonly movieIndexQueue: MovieIndexQueue
-
-
-
   ) { }
 
   //Movies Services
@@ -63,7 +57,7 @@ export class MovielistService {
       const newMovie = await this.sequelize.transaction(async (manager: Transaction) => {
         const { title, description, releaseDate, genres, persons } =
           createMoviesDto;
-          
+
         // Check if Movie title is unique or not
         const whereParameters: WhereOptions = {
           title: title.toLowerCase(),
@@ -122,7 +116,6 @@ export class MovielistService {
 
       await this.movieIndexQueue.addJob(newMovie.id);
       return newMovie;
-      
     } catch (error) {
       if (
         error instanceof ConflictException ||
@@ -130,6 +123,97 @@ export class MovielistService {
       )
         throw error;
       throw new Error('An unexpected Error occured while creating Movie');
+    }
+  }
+
+
+  //Update One Movie
+  async updateOneMovie(id: number, updateMovieDto: UpdateOneMovieDto) {
+    try {
+      const updatedMovie = await this.sequelize.transaction(async (manager: Transaction) => {
+        var where: WhereOptions = {};
+        where.id = id;
+
+        const result = await this.movielistRepository.findOneByPkIncludedAssociation(id);
+        if (!result) throw new NotFoundException('Movie not found');
+
+        console.log("Result", result);
+
+        var whereTitle: WhereOptions = {};
+        if (updateMovieDto.title) {
+          whereTitle.title = updateMovieDto.title.toLowerCase();
+          console.log("Where Options", whereTitle);
+          const existingMovieCheck = await this.movielistRepository.findOne(whereTitle);
+          if (existingMovieCheck) {
+            throw new ConflictException(
+              `Movie Title: ${updateMovieDto.title} already exists. Cannot add another`,
+            );
+          }
+        }
+
+
+        if (updateMovieDto.title) where.title = updateMovieDto.title.toLowerCase();
+        if (updateMovieDto.description) where.description = updateMovieDto.description;
+        if (updateMovieDto.releaseDate) where.release_date = updateMovieDto.releaseDate;
+
+
+        // Check if the ids provided in the genres and persons exixts or not
+        // Check and Add the Genre to variable
+        const moviesRelatedToGenre: Genres[] = [];
+        for (const genre of updateMovieDto.genres || []) {
+          const [genreInstance, _created] =
+            await this.genreRepository.findOneorCreate(genre, manager);
+          if (!genreInstance) {
+            throw new NotFoundException(`Genre Id: ${genre} does not exists`);
+          } else {
+            moviesRelatedToGenre.push(genreInstance);
+          }
+        }
+
+        // Check and Add the Genre to variable
+        const personsRelatedToGenre: FindOrCreatePersonDto[] = [];
+        for (const person of updateMovieDto.persons || []) {
+          const [personInstance, _created] =
+            await this.personRepository.findOneOrCreate(person, manager);
+          if (!personInstance) {
+            throw new NotFoundException(
+              `Person Id: ${person.id} does not exists`,
+            );
+          } else {
+            personsRelatedToGenre.push({
+              id: personInstance.id,
+              cast: person.cast,
+            });
+          }
+        }
+        // Create an instance and save it
+        const payload: UpdateMoviePayload = {
+          title: where.title.toLowerCase(),
+          description: where.description,
+          release_date: where.releaseDate,
+          genres: moviesRelatedToGenre,
+          persons: personsRelatedToGenre,
+        };
+        const updatedMovie = await this.movielistRepository.updateOne(
+          result,
+          payload,
+          manager,
+        );
+
+//         const current = await this.elasticSearchService.get({
+//   index: 'movies',
+//   id: movieId.toString(),
+// });
+
+        return updatedMovie;
+      })
+
+
+
+      return updatedMovie;
+    } catch (error) {
+      this.logger.error('An unexpected Error occured while updating Movie', error);
+      throw error;
     }
   }
 
@@ -158,6 +242,7 @@ export class MovielistService {
       }
 
       const where: WhereOptions = {};
+      if (dto.id) where.id = dto.id;
       if (dto.title) where.title = dto.title.toLowerCase();
       if (dto.description) where.description = dto.description;
       if (dto.release_date) where.release_date = dto.release_date;
@@ -247,17 +332,7 @@ export class MovielistService {
     }
   }
 
-  async updateOneMovie() {
-    try {
-      return 'Hello from the Create Service';
-    } catch (error) {
-      this.logger.error(
-        'An unexpected Error occured while creating Movie',
-        error,
-      );
-      throw error;
-    }
-  }
+
 
   async deleteOneMovie(id: number) {
     try {

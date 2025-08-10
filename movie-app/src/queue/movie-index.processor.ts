@@ -10,7 +10,7 @@ export class MovieIndexProcessor implements OnModuleInit {
     constructor(
         private readonly movieRepository: MovieListRepository,
         private readonly elasticsearchService: ElasticsearchService,
-        private logger :Logger
+        private logger: Logger
     ) { }
 
     onModuleInit() {
@@ -28,30 +28,32 @@ export class MovieIndexProcessor implements OnModuleInit {
     }
 
     private async handleAddIndexMovie(job: Job) {
-        try{
+        try {
+            const { movieId } = job.data;
+            const movie = await this.movieRepository.findOneWithAssociations(movieId);
+            if (!movie) throw new Error(`Movie ID ${movieId} not found`);
 
-        }catch(error){
-           this.logger.error(`An unexpected error occured while  adding document to elastic index movies`, error )
+            const movieDoc = {
+                id: movie?.dataValues?.id,
+                title: movie?.dataValues?.title,
+                description: movie?.dataValues?.description,
+                genres: movie?.dataValues?.genres.map((g) => g.dataValues.genre),
+                persons: movie?.dataValues?.persons.map((p) => ({
+                    name: p.name,
+                    cast: (p as any).Personas?.cast,
+                })),
+            };
+            const result = await this.elasticsearchService.index({
+                index: 'movies',
+                id: movie.id.toString(),
+                document: movieDoc,
+            });
+            console.log("Result", result);
+            console.log("Successfully added to the Index via Queue");
+        } catch (error) {
+            this.logger.error(`An unexpected error occured while  adding document to elastic index movies`, error)
         }
-        const { movieId } = job.data;
 
-        const movie = await this.movieRepository.findOneWithAssociations(movieId);
-        if (!movie) throw new Error(`Movie ID ${movieId} not found`);
 
-        const movieDoc = {
-            id: movie?.dataValues?.id,
-            title: movie?.dataValues?.title,
-            description: movie?.dataValues?.description,
-            genres: movie?.dataValues?.genres.map((g) => g.dataValues.genre),
-            persons: movie?.dataValues?.persons.map((p) => ({
-                name: p.name,
-                cast: (p as any).Personas?.cast,
-            })),
-        };
-        const result = await this.elasticsearchService.index({
-            index: 'movies',
-            id: movie.id.toString(),
-            document: movieDoc,
-        });
     }
 }

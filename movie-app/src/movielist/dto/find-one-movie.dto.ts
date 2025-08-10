@@ -11,6 +11,11 @@ import { MovieGenresType } from '../constants/movielist.enums';
 
 export class FindOneMovieDto {
   @IsOptional()
+  @IsNumber()
+  @Type(() => Number)
+  id: number;
+
+  @IsOptional()
   @IsString()
   title: string;
 

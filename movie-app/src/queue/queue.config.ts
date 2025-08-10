@@ -1,4 +1,3 @@
-// src/queue/queue.config.ts
 import { BullRootModuleOptions } from '@nestjs/bullmq';
 
 export const queueConfig: BullRootModuleOptions = {

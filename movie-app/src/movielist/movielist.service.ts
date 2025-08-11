@@ -30,7 +30,8 @@ import { Cache } from 'cache-manager';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { FindAllMovieDto } from './dto/find-all-movie.dto';
 import { ElasticsearchService } from '@nestjs/elasticsearch';
-import { MovieIndexQueue } from 'src/queue/movie-index.queue';
+import { MovieQueue } from 'src/queue/movie.queue';
+// import { MovieIndexQueue } from 'src/queue/movie-index.queue';
 
 @Injectable()
 export class MovielistService {
@@ -47,7 +48,8 @@ export class MovielistService {
     private readonly genreRepository: GenreRepository,
     private readonly personRepository: PersonRepository,
     private readonly elasticSearchService: ElasticsearchService,
-    private readonly movieIndexQueue: MovieIndexQueue
+    // private readonly movieIndexQueue: MovieIndexQueue
+    private readonly movieQueue: MovieQueue
   ) { }
 
   //Movies Services
@@ -114,9 +116,9 @@ export class MovielistService {
         return newMovie;
       });
 
-      await this.movieIndexQueue.addJob(newMovie.id);
+      await this.movieQueue.addMovieJob(newMovie.id);
       return newMovie;
-    } catch (error) {
+    } catch (error) { 
       if (
         error instanceof ConflictException ||
         error instanceof NotFoundException

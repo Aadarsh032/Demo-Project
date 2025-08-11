@@ -13,14 +13,16 @@ import { BullModule } from '@nestjs/bullmq';
 import { MovieListRepository } from './movielist/movielist.repository';
 import { queueConfig } from './queue/queue.config';
 import { QueueModule } from './queue/queue.module';
+import { MovieQueue } from './queue/movie.queue';
+import { MovieSubscriber } from './queue/movie.subscriber';
 
 
 @Module({
   imports: [
     BullModule.forRoot(queueConfig),
-    BullModule.registerQueue({
-      name: 'movie-index',
-    }),
+    // BullModule.registerQueue({
+    //   name: 'movie-queue',
+    // }),
     CacheModule.registerAsync({
       isGlobal: true,
       useFactory: async () => ({
@@ -35,7 +37,7 @@ import { QueueModule } from './queue/queue.module';
     UserModule,
     DatabaseModule,
     ElasticModule,
-    QueueModule
+    QueueModule,
   ],
   controllers: [AppController],
   providers: [AppService],
